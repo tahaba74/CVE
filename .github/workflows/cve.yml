@@ -1,0 +1,54 @@
+name: Process CVE CSV with Logstash
+
+on:
+  schedule:
+    - cron: "0 * * * *"  # Planifier toutes les heures
+  workflow_dispatch:  # Permet de déclencher manuellement si nécessaire
+
+jobs:
+  process_csv:
+    runs-on: ubuntu-latest  # Utilise une machine virtuelle Ubuntu
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Install Logstash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y default-jre wget
+        wget https://artifacts.elastic.co/downloads/logstash/logstash-7.15.2.deb
+        sudo dpkg -i logstash-7.15.2.deb
+
+    - name: Download CSV file
+      run: |
+        curl -o extracted_data.csv https://raw.githubusercontent.com/tahaba74/CVE/main/extracted_data.csv
+
+    - name: Create Logstash pipeline
+      run: |
+        echo '
+        input {
+          file {
+            path => "./extracted_data.csv"
+            start_position => "beginning"
+            sincedb_path => "NUL"
+          }
+        }
+        filter {
+          csv {
+            separator => ","
+            columns => ["CVE_ID", "Status", "Descriptions", "Weaknesses", "Source Identifier", "Published", "Last Modified", "CVSS_Metric_V2_Primary_version", "CVSS_Metric_V2_Primary_vectorString", "CVSS_Metric_V2_Primary_accessVector", "CVSS_Metric_V2_Primary_accessComplexity", "CVSS_Metric_V2_Primary_authentication", "CVSS_Metric_V2_Primary_confidentialityImpact", "CVSS_Metric_V2_Primary_integrityImpact", "CVSS_Metric_V2_Primary_availabilityImpact", "CVSS_Metric_V2_Primary_baseScore", "CVSS_Metric_V2_Primary_exploitabilityScore", "CVSS_Metric_V2_Primary_impactScore", "CVSS_Metric_V3.1_Secondary_version", "CVSS_Metric_V3.1_Secondary_vectorString", "CVSS_Metric_V3.1_Secondary_attackVector", "CVSS_Metric_V3.1_Secondary_attackComplexity", "CVSS_Metric_V3.1_Secondary_privilegesRequired", "CVSS_Metric_V3.1_Secondary_userInteraction", "CVSS_Metric_V3.1_Secondary_scope", "CVSS_Metric_V3.1_Secondary_confidentialityImpact", "CVSS_Metric_V3.1_Secondary_integrityImpact", "CVSS_Metric_V3.1_Secondary_availabilityImpact", "CVSS_Metric_V3.1_Secondary_baseScore", "CVSS_Metric_V3.1_Secondary_baseSeverity", "CVSS_Metric_V3.1_Secondary_exploitabilityScore", "CVSS_Metric_V3.1_Secondary_impactScore", "CVSS_Metric_V3.1_Primary_version", "CVSS_Metric_V3.1_Primary_vectorString", "CVSS_Metric_V3.1_Primary_attackVector", "CVSS_Metric_V3.1_Primary_attackComplexity", "CVSS_Metric_V3.1_Primary_privilegesRequired", "CVSS_Metric_V3.1_Primary_userInteraction", "CVSS_Metric_V3.1_Primary_scope", "CVSS_Metric_V3.1_Primary_confidentialityImpact", "CVSS_Metric_V3.1_Primary_integrityImpact", "CVSS_Metric_V3.1_Primary_availabilityImpact", "CVSS_Metric_V3.1_Primary_baseScore", "CVSS_Metric_V3.1_Primary_baseSeverity", "CVSS_Metric_V3.1_Primary_exploitabilityScore", "CVSS_Metric_V3.1_Primary_impactScore"]
+          }
+        }
+        output {
+          elasticsearch {
+            hosts => "http://localhost:9200"  # Adresse de ton serveur Elasticsearch
+            index => "cve_id"
+            document_id => "%{CVE_ID}"  # Assure-toi d'utiliser un document_id unique
+          }
+        }
+        ' > logstash.conf
+
+    - name: Run Logstash pipeline
+      run: |
+        sudo /usr/share/logstash/bin/logstash -f logstash.conf
