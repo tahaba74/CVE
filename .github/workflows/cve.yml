@@ -17,8 +17,9 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y default-jre wget
-        wget https://artifacts.elastic.co/downloads/logstash/logstash-7.15.2.deb
-        sudo dpkg -i logstash-7.15.2.deb
+        wget https://artifacts.elastic.co/downloads/logstash/logstash-8.15.2.deb
+        sudo dpkg -i logstash-8.15.2.deb
+
 
     - name: Download CSV file
       run: |
